@@ -29,7 +29,7 @@ app.get('/movies', getMovies);
 
 app.get('/meetups', getEvents); 
 
-// app.get('/trails', getTrails);
+app.get('/trails', getTrails);
 
 // Make sure the server is listening for requests
 app.listen(PORT, () => console.log(`Listening on ${PORT}`));
@@ -86,22 +86,23 @@ function MUEvent(query) {
   // this.creation_date = query.created;
   this.creation_date = (new Date(query.created * 1000)).toLocaleString();
 
-  console.log(this);
+  // console.log(this);
 }
 
 //object for hiking
-// function Trail(query) {
-//   this.trail_url
-//   this.name
-//   this.location
-//   this.length
-//   this.condition_date
-//   this.condition_time
-//   this.conditions
-//   this.stars
-//   this.star_votes
-//   this.summary
-// }
+function Trail(query) {
+  this.trail_url = query.url;
+  this.name = query.name;
+  this.location = query.location;
+  this.length = query.length;
+  this.condition_date = query.conditionDate;
+  this.condition_time = 1;
+  this.conditions = query.conditionStatus;
+  this.stars = query.stars;
+  this.star_votes = query.starVotes;
+  this.summary = query.summary;
+  console.log(this);
+}
 
 
 // Helper Functions
@@ -170,18 +171,18 @@ function getEvents(req,response) {
     .catch(error => handleError(error, response));
 }
 
-// function getTrails(query,response) {
-//   const trailUrl = `https://www.hikingproject.com/data/get-trails?lat=${request.query.data.latitude}&lon=${req.query.data.longitude}&maxDistance=10&key=${process.env.HIKING_API_KEY}`; 
-//will I fill in max distance, is it a defalt number, do I need to remove it, etc?
-//will I need a second URL for conditions: https://www.hikingproject.com/data/get-conditions?ids=7001635,7002742,7000108,7002175
+function getTrails(req,response) {
+  const trailUrl = `https://www.hikingproject.com/data/get-trails?lat=${req.query.data.latitude}&lon=${req.query.data.longitude}&maxDistance=10&key=${process.env.HIKING_API_KEY}`; 
+// will I fill in max distance, is it a defalt number, do I need to remove it, etc?
+// will I need a second URL for conditions: https://www.hikingproject.com/data/get-conditions?ids=7001635,7002742,7000108,7002175
 
-//   superagent.get(trailUrl)
-//     .then(resultFromSuper => {
-//       console.log(resultFromSuper);
-//       const trailSummaries = resultFromSuper.map(trailItem => { 
-//         return new Trail(trailItem);
-//       });
-//       response.send(trailSummaries);
-//     })
-//     .catch(error => handleError(error, response));
-// }
+  superagent.get(trailUrl)
+    .then(resultFromSuper => {
+      console.log('trail info', resultFromSuper.body.trails);
+      const trailSummaries = resultFromSuper.body.trails.map(trailItem => {
+        return new Trail(trailItem);
+      });
+      response.send(trailSummaries);
+    })
+    .catch(error => handleError(error, response));
+}
