@@ -84,7 +84,7 @@ function MUEvent(query) {
   this.host = query.group.name;
   // console.log('object query group name',query.group.name);
   // this.creation_date = query.created;
-  this.creation_date = (new Date(query.created * 1000)).toLocaleString();
+  this.creation_date = (new Date(query.created)).toLocaleDateString();
 
   // console.log(this);
 }
@@ -101,7 +101,7 @@ function Trail(query) {
   this.stars = query.stars;
   this.star_votes = query.starVotes;
   this.summary = query.summary;
-  console.log(this);
+  // console.log(this);
 }
 
 
@@ -178,7 +178,7 @@ function getTrails(req,response) {
 
   superagent.get(trailUrl)
     .then(resultFromSuper => {
-      console.log('trail info', resultFromSuper.body.trails);
+      // console.log('trail info', resultFromSuper.body.trails);
       const trailSummaries = resultFromSuper.body.trails.map(trailItem => {
         return new Trail(trailItem);
       });
