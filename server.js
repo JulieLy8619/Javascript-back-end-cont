@@ -27,6 +27,10 @@ app.get('/yelp', getYelp);
 
 app.get('/movies', getMovies);
 
+// app.get('/meetup', getEvents); //might have to change the /name
+
+// app.get('/hiking', getTrails); //might have to change the /name
+
 // Make sure the server is listening for requests
 app.listen(PORT, () => console.log(`Listening on ${PORT}`));
 
@@ -36,7 +40,9 @@ function handleError(err, res) {
   if (res) res.status(500).send('Sorry, something went wrong');
 }
 
-// Models (aka constructors)
+// Models (aka constructors) 
+//reminder to self: the "this"s are from the handlebars from the index in the class respoitory
+//object for user location entry
 function Location(query, res) {
   this.search_query = query;  
   this.formatted_query = res.body.results[0].formatted_address; 
@@ -44,11 +50,13 @@ function Location(query, res) {
   this.longitude = res.body.results[0].geometry.location.lng;
 }
 
+//object for dark sky
 function Weather(day) {
   this.forecast = day.summary;
   this.time = new Date(day.time * 1000).toString().slice(0, 15);
 }
 
+//object for yelp
 function Food(place) {
   this.url = place.url;
   this.name = place.name;
@@ -58,6 +66,7 @@ function Food(place) {
   console.log(this);
 }
 
+//object for the movie database
 function Movie(query) {
   this.title = query.title;
   this.released_on = query.release_date;
@@ -67,6 +76,28 @@ function Movie(query) {
   this.image_url = ('http://image.tmdb.org/t/p/w185/'+query.poster_path);
   this.overview = query.overview;
 }
+
+//object for meet up
+// function MUEvent(query) {
+//   this.link
+//   this.name
+//   this.host
+//   this.creation_date
+// }
+
+//object for hiking
+// function Trail(query) {
+//   this.trail_url
+//   this.name
+//   this.location
+//   this.length
+//   this.condition_date
+//   this.condition_time
+//   this.conditions
+//   this.stars
+//   this.star_votes
+//   this.summary
+// }
 
 
 // Helper Functions
@@ -121,32 +152,34 @@ function getMovies(query,response) {
     .catch(error => handleError(error, response));
 }
 
-//hint for yelp
-//  look at superagent docs
-//  will use superagent.set after superagent.get
-//  the api key isn't used in the URL
+// function getEvents(query,response) {
+//   const eventUrl = `https://api.meetup.com/find/groups?zip=${query}`; //note to self will need the path to the query's zip
 
-// { businesses:
-//   [ 
-//     { id: '6I28wDuMBR5WLMqfKxaoeg',
-//       alias: 'pike-place-chowder-seattle',
-//       name: 'Pike Place Chowder',
-//       image_url:
-//        'https://s3-media3.fl.yelpcdn.com/bphoto/ijju-wYoRAxWjHPTCxyQGQ/o.jpg',
-//       is_closed: false,
-//       url:
-//        'https://www.yelp.com/biz/pike-place-chowder-seattle?adjust_creative=QailHQ2lZirdKKJTGc9X1Q&utm_campaign=yelp_api_v3&utm_medium=api_v3_business_search&utm_source=QailHQ2lZirdKKJTGc9X1Q',
-//       review_count: 6321,
-//       categories: [Array],
-//       rating: 4.5,
-//       coordinates: [Object],
-//       transactions: [Array],
-//       price: '$$',
-//       location: [Object],
-//       phone: '+12062672537',
-//       display_phone: '(206) 267-2537',
-//       distance: 767.5659881806488 
-//     }
-//   ]
+//   superagent.get(eventUrl)
+//     .set('Authorization', `Bearer ${process.env.MEET_UP_API_KEY}`) 
+//note to self, I think meet up also uses authorization bearer
+//     .then(resultFromSuper => {
+//      console.log(resultFromSuper);
+//       const eventSummaries = resultFromSuper.map(eventItem => {
+//         return new MUEvent(eventItem);
+//       });
+//       response.send(eventSummaries);
+//     })
+//     .catch(error => handleError(error, response));
 // }
-    
+
+// function getTrails(query,response) {
+//   const trailUrl = `https://www.hikingproject.com/data/get-trails?lat=${request.query.data.latitude}&lon=${req.query.data.longitude}&maxDistance=10&key=${process.env.HIKING_API_KEY}`; 
+//will I fill in max distance, is it a defalt number, do I need to remove it, etc?
+//will I need a second URL for conditions: https://www.hikingproject.com/data/get-conditions?ids=7001635,7002742,7000108,7002175
+
+//   superagent.get(trailUrl)
+//     .then(resultFromSuper => {
+//       console.log(resultFromSuper);
+//       const trailSummaries = resultFromSuper.map(trailItem => { 
+//         return new Trail(trailItem);
+//       });
+//       response.send(trailSummaries);
+//     })
+//     .catch(error => handleError(error, response));
+// }
