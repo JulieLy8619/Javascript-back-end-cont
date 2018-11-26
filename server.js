@@ -27,9 +27,9 @@ app.get('/yelp', getYelp);
 
 app.get('/movies', getMovies);
 
-// app.get('/meetup', getEvents); //might have to change the /name
+app.get('/meetups', getEvents); 
 
-// app.get('/hiking', getTrails); //might have to change the /name
+// app.get('/trails', getTrails);
 
 // Make sure the server is listening for requests
 app.listen(PORT, () => console.log(`Listening on ${PORT}`));
@@ -44,7 +44,7 @@ function handleError(err, res) {
 //reminder to self: the "this"s are from the handlebars from the index in the class respoitory
 //object for user location entry
 function Location(query, res) {
-  this.search_query = query;  
+  this.search_query = query;
   this.formatted_query = res.body.results[0].formatted_address; 
   this.latitude = res.body.results[0].geometry.location.lat;
   this.longitude = res.body.results[0].geometry.location.lng;
@@ -60,10 +60,10 @@ function Weather(day) {
 function Food(place) {
   this.url = place.url;
   this.name = place.name;
-  this.rating = place.rating; 
+  this.rating = place.rating;
   this.price = place.price;
   this.image_url = place.image_url;
-  console.log(this);
+  // console.log(this);
 }
 
 //object for the movie database
@@ -78,12 +78,16 @@ function Movie(query) {
 }
 
 //object for meet up
-// function MUEvent(query) {
-//   this.link
-//   this.name
-//   this.host
-//   this.creation_date
-// }
+function MUEvent(query) {
+  this.link = query.link;
+  this.name = query.name;
+  this.host = query.group.name;
+  // console.log('object query group name',query.group.name);
+  // this.creation_date = query.created;
+  this.creation_date = (new Date(query.created * 1000)).toLocaleString();
+
+  console.log(this);
+}
 
 //object for hiking
 // function Trail(query) {
@@ -130,7 +134,6 @@ function getYelp(req, res){
   superagent.get(yelpUrl)
     .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
     .then(yelpResult => {
-      console.log('yelpResult', yelpResult.body.businesses[0]);
       const yelpSummaries = yelpResult.body.businesses.map(place => {
         return new Food(place);
       });
@@ -152,21 +155,20 @@ function getMovies(query,response) {
     .catch(error => handleError(error, response));
 }
 
-// function getEvents(query,response) {
-//   const eventUrl = `https://api.meetup.com/find/groups?zip=${query}`; //note to self will need the path to the query's zip
+function getEvents(req,response) {
+  const eventUrl = `https://api.meetup.com/find/upcoming_events?key=${process.env.MEET_UP_API_KEY}&lon=${req.query.data.longitude}&page=20&lat=${req.query.data.latitude}`; 
+  
 
-//   superagent.get(eventUrl)
-//     .set('Authorization', `Bearer ${process.env.MEET_UP_API_KEY}`) 
-//note to self, I think meet up also uses authorization bearer
-//     .then(resultFromSuper => {
-//      console.log(resultFromSuper);
-//       const eventSummaries = resultFromSuper.map(eventItem => {
-//         return new MUEvent(eventItem);
-//       });
-//       response.send(eventSummaries);
-//     })
-//     .catch(error => handleError(error, response));
-// }
+  superagent.get(eventUrl)
+    .then(resultFromSuper => {
+      // console.log(resultFromSuper.body.events);
+      const eventSummaries = resultFromSuper.body.events.map(eventItem => {
+        return new MUEvent(eventItem);
+      });
+      response.send(eventSummaries);
+    })
+    .catch(error => handleError(error, response));
+}
 
 // function getTrails(query,response) {
 //   const trailUrl = `https://www.hikingproject.com/data/get-trails?lat=${request.query.data.latitude}&lon=${req.query.data.longitude}&maxDistance=10&key=${process.env.HIKING_API_KEY}`; 
