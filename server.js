@@ -117,6 +117,7 @@ Food.prototype.save = function (location_id) {
 
 //object for the movie database
 function Movie(query) {
+  this.tableName = 'tmdb';
   this.title = query.title;
   this.released_on = query.release_date;
   this.total_votes = query.vote_count;
@@ -124,6 +125,15 @@ function Movie(query) {
   this.popularity = query.popularity;
   this.image_url = ('http://image.tmdb.org/t/p/w185/'+query.poster_path);
   this.overview = query.overview;
+}
+Movie.tableName = 'tmdb';
+Movie.lookup = lookup;
+Movie.deleteByLocationId = deleteByLocationId;
+Movie.prototype.save = function (location_id) {
+  const SQL = `INSERT INTO ${this.tableName} (created_at, title, released_on, total_votes, average_votes, popularity, image_url, overview, location_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`;
+  const values = [this.created_at, this.title, this.released_on, this.total_votes, this.average_votes, this.popularity, this.image_url, this.overview, location_id];
+
+  client.query(SQL, values);
 }
 
 //object for meet up
@@ -198,7 +208,6 @@ function getLocation (req, resp) {
 
 // Weather handler
 function getWeather(request, response) {
-
   Weather.lookup({
     tableName: Weather.tableName,
     location: request.query.data.id,
@@ -274,22 +283,50 @@ function getYelp(req, res){
 }
 
 
-function getMovies(query,response) {
-  const movieUrl = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&query=${query}`;
+// function getMovies(query,response) {
+//   const movieUrl = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&query=${query}`;
 
-  superagent.get(movieUrl)
-    .then(resultFromSuper => {
-      const movieSummaries = resultFromSuper.body.results.map(movieItem => {
-        return new Movie(movieItem);
-      });
-      response.send(movieSummaries);
-    })
-    .catch(error => handleError(error, response));
+//   superagent.get(movieUrl)
+//     .then(resultFromSuper => {
+//       const movieSummaries = resultFromSuper.body.results.map(movieItem => {
+//         return new Movie(movieItem);
+//       });
+//       response.send(movieSummaries);
+//     })
+//     .catch(error => handleError(error, response));
+// }
+function getMovies(request,response) {
+  Movie.lookup({
+    tableName: Movie.tableName,
+    location: request.query.data.id,
+    cacheHit: function (result) {
+      let ageOfResultsInMinutes = (Date.now() - result.rows[0].created_at) / (1000 * 60);
+      if (ageOfResultsInMinutes > 30) {
+        Movie.deleteByLocationId(Movie.tableName, request.query.data.id);
+        this.cacheMiss();
+      } else {
+        response.send(result.rows);
+      }
+    },
+    cacheMiss: function () {
+      const url = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&query=${request}`;
+
+      return superagent.get(url)
+        .then(resultFromSuper => {
+          const movieSummaries = resultFromSuper.body.results.map(movieItem => {
+            const summary = new Movie(movieItem);
+            summary.save(request.query.data.id);
+            return summary;
+          });
+          response.send(movieSummaries);
+        })
+        .catch(error => handleError(error, response));
+    }
+  })
 }
 
 function getEvents(req,response) {
   const eventUrl = `https://api.meetup.com/find/upcoming_events?key=${process.env.MEET_UP_API_KEY}&lon=${req.query.data.longitude}&page=20&lat=${req.query.data.latitude}`; 
-  
 
   superagent.get(eventUrl)
     .then(resultFromSuper => {

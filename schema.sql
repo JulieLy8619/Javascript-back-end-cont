@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS tmdb (
     id SERIAL PRIMARY KEY,
     created_at BIGINT,
     title VARCHAR(255),
-    released_on BIGINT,
+    released_on VARCHAR(255),
     total_votes NUMERIC(8, 0),
     average_votes NUMERIC(8, 0),
     popularity NUMERIC(8, 0),
