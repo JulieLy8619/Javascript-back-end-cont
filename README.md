@@ -23,7 +23,7 @@ see below
 
 ## Credits and Collaborations
 - Ryan G helped me with the meet up URL, it was pieced tog by his group
-- used https://www.epochconverter.com/programming/#javascript to help with millisecond converter equation
+- used https://www.epochconverter.com/programming/#javascript and https://www.w3schools.com/jsref/jsref_obj_date.asp to help with millisecond converter equation 
 
 ------------------
 # Note lab 8 9 and 10 ended up being done solo and professor stated could be done in one repo
