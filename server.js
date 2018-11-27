@@ -77,15 +77,12 @@ Location.prototype.save = function () {
     });
 }
 
-
-
 //object for dark sky
 function Weather(day) {
   this.tableName = 'weathers';
   this.forecast = day.summary;
   this.time = new Date(day.time * 1000).toString().slice(0, 15);
   this.created_at = Date.now();
-  // console.log('the weather object', this);
 }
 Weather.tableName = 'weathers';
 Weather.lookup = lookup;
@@ -99,12 +96,24 @@ Weather.prototype.save = function(location_id) {
 
 //object for yelp
 function Food(place) {
+  this.tableName = 'yelp';
   this.url = place.url;
   this.name = place.name;
   this.rating = place.rating;
   this.price = place.price;
   this.image_url = place.image_url;
+  this.created_at = Date.now();
 }
+Food.tableName = 'yelp';
+Food.lookup = lookup;
+Food.deleteByLocationId = deleteByLocationId;
+Food.prototype.save = function (location_id) {
+  const SQL = `INSERT INTO ${this.tableName} (name, created_at, rating, price, image_url, location_id) VALUES ($1, $2, $3, $4, $5, $6);`;
+  const values = [this.name, this.created_at, this.rating, this.price, this.image_url, location_id];
+
+  client.query(SQL, values);
+}
+
 
 //object for the movie database
 function Movie(query) {
@@ -189,13 +198,12 @@ function getLocation (req, resp) {
 
 // Weather handler
 function getWeather(request, response) {
-  console.log('in getweather');
+
   Weather.lookup({
     tableName: Weather.tableName,
     location: request.query.data.id,
     cacheHit: function (result) {
       let ageOfResultsInMinutes = (Date.now() - result.rows[0].created_at) / (1000 * 60);
-      // console.log('in weather lookup cachehit');
       if (ageOfResultsInMinutes > 30) {
         Weather.deleteByLocationId(Weather.tableName, request.query.data.id);
         this.cacheMiss();
@@ -206,7 +214,6 @@ function getWeather(request, response) {
     cacheMiss: function () {
       const url = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${request.query.data.latitude},${request.query.data.longitude}`;
 
-      // console.log('in weather lookup cachemiss');
       return superagent.get(url)
         .then(result => {
           const weatherSummaries = result.body.daily.data.map(day => {
@@ -221,19 +228,51 @@ function getWeather(request, response) {
   })
 }
 
-function getYelp(req, res){
-  const yelpUrl = `https://api.yelp.com/v3/businesses/search?latitude=${req.query.data.latitude}&longitude=${req.query.data.longitude}`;
+// function getYelp(req, res){
+//   const yelpUrl = `https://api.yelp.com/v3/businesses/search?latitude=${req.query.data.latitude}&longitude=${req.query.data.longitude}`;
 
-  superagent.get(yelpUrl)
-    .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
-    .then(yelpResult => {
-      const yelpSummaries = yelpResult.body.businesses.map(place => {
-        return new Food(place);
-      });
-      res.send(yelpSummaries);
-    })
-    .catch(error => handleError(error, res));
+//   superagent.get(yelpUrl)
+//     .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
+//     .then(yelpResult => {
+//       const yelpSummaries = yelpResult.body.businesses.map(place => {
+//         return new Food(place);
+//       });
+//       res.send(yelpSummaries);
+//     })
+//     .catch(error => handleError(error, res));
+// }
+
+function getYelp(req, res){
+  Food.lookup({
+    tableName: Food.tableName,
+    location: req.query.data.id,
+    cacheHit: function (result) {
+      let ageOfResultsInMinutes = (Date.now() - result.rows[0].created_at) / (1000 * 60);
+      if (ageOfResultsInMinutes > 30) {
+        Food.deleteByLocationId(Food.tableName, req.query.data.id);
+        this.cacheMiss();
+      } else {
+        res.send(result.rows);
+      }
+    },
+    cacheMiss: function () {
+      const url = `https://api.yelp.com/v3/businesses/search?latitude=${req.query.data.latitude}&longitude=${req.query.data.longitude}`;
+
+      return superagent.get(url)
+        .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
+        .then(yelpResult => {
+          const yelpSummaries = yelpResult.body.businesses.map(place => {
+            const summary = new Food(place);
+            summary.save(req.query.data.id);
+            return summary;
+          });
+          res.send(yelpSummaries);
+        })
+        .catch(error => handleError(error, res));
+    }
+  })
 }
+
 
 function getMovies(query,response) {
   const movieUrl = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&query=${query}`;
@@ -288,7 +327,6 @@ function getTrails(req,response) {
 function lookup(options) {
   const SQL = `SELECT * FROM ${options.tableName} WHERE location_id=$1;`;
   const values = [options.location];
-  console.log('in lookup function');
   client.query(SQL, values)
     .then(result => {
       if (result.rowCount > 0) {
