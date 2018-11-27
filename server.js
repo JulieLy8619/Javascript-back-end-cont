@@ -4,6 +4,7 @@
 // Application Dependencies
 const express = require('express');
 const superagent = require('superagent');
+const pg = require('pg');
 const cors = require('cors');
 
 // Load environment variables from .env file
@@ -14,12 +15,18 @@ const app = express();
 const PORT = process.env.PORT;
 app.use(cors());
 
+//data base set up
+const client = new pg.Client(process.env.DATABASE_URL);
+client.connect();
+client.on('error', err => console.error(err));
+
 // API Routes
-app.get('/location', (request, response) => {
-  searchToLatLong(request.query.data)
-    .then(location => response.send(location))
-    .catch(error => handleError(error, response));
-})
+app.get('/location', getLocation);
+// app.get('/location', (request, response) => {
+//   searchToLatLong(request.query.data)
+//     .then(location => response.send(location))
+//     .catch(error => handleError(error, response));
+// })
 
 app.get('/weather', getWeather);
 
@@ -44,10 +51,62 @@ function handleError(err, res) {
 //reminder to self: the "this"s are from the handlebars from the index in the class respoitory
 //object for user location entry
 function Location(query, res) {
+  this.tableName = 'location';
   this.search_query = query;
   this.formatted_query = res.body.results[0].formatted_address; 
   this.latitude = res.body.results[0].geometry.location.lat;
   this.longitude = res.body.results[0].geometry.location.lng;
+  this.created_at = Date.now();
+}
+
+Location.lookupLocation = (location) => {
+  const SQL = `SELECT * FROM locations WHERE search_query=$1;`;
+  const values = [location.query];
+
+  return client.query(SQL, values)
+    .then(result => {
+      if (result.rowCount > 0) {
+        console.log('We have a match for location');
+        location.cacheHit(result);
+      } else {
+        console.log('We do not have a location match');
+        location.cacheMiss();
+      }
+    })
+    .catch(console.error);
+}
+
+Location.prototype.save = function () {
+  const SQL = `INSERT INTO locations (search_query, formatted_query, latitude, longitude) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING RETURNING id;`;
+  const values = [this.search_query, this.formatted_query, this.latitude, this.longitude];
+
+  return client.query(SQL, values)
+    .then(result => {
+      this.id = result.rows[0].id;
+      return this;
+    });
+}
+
+function getLocation (req, resp) {
+  Location.lookupLocation({
+    tableName: Location.tableName,
+    query: req.query.data,
+    cacheHit: function(result) {
+      console.log(result.rows[0]);
+      resp.send(result.rows[0]);
+    },
+    cacheMiss: function() {
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${this.query}&key=${process.env.GEOCODE_API_KEY}`;
+
+      return superagent.get(url)
+        .then(result => {
+          const location = new Location(this.query, result);
+          location.save()
+            .then(location => resp.send(location));
+        })
+        .catch(error => handleError(error));
+    }
+  })
 }
 
 //object for dark sky
@@ -173,8 +232,6 @@ function getEvents(req,response) {
 
 function getTrails(req,response) {
   const trailUrl = `https://www.hikingproject.com/data/get-trails?lat=${req.query.data.latitude}&lon=${req.query.data.longitude}&maxDistance=10&key=${process.env.HIKING_API_KEY}`; 
-// will I fill in max distance, is it a defalt number, do I need to remove it, etc?
-// will I need a second URL for conditions: https://www.hikingproject.com/data/get-conditions?ids=7001635,7002742,7000108,7002175
 
   superagent.get(trailUrl)
     .then(resultFromSuper => {
@@ -186,3 +243,20 @@ function getTrails(req,response) {
     })
     .catch(error => handleError(error, response));
 }
+
+// new helper functions
+function lookup(options) {
+  const SQL = `SELECT * FROM ${options.tableName} WHERE location_id=$1;`;
+  const values = [options.location];
+
+  client.query(SQL, values)
+    .then(result => {
+      if (result.rowCount > 0) {
+        options.cacheHit(result);
+      } else {
+        options.cacheMiss();
+      }
+    })
+    .catch(error => handleError(error));
+}
+
