@@ -6,14 +6,20 @@ Estimate of time needed to complete: 2hrs
 Start time: 10:00
 Finish time: 12:15
 Actual time needed to complete: 2.25 hrs
-
-Number and name of feature: feature 1
+------------------
+Number and name of feature: feature 1 of lab 8 caching data
 Estimate of time needed to complete: 1 hr
 12-1-18
 Start time: 9:15
+Finish time: 10:30
+Actual time needed to complete: 1.25hrs
+------------------
+Number and name of feature: feature 2 of lab 8 pg on heroku
+Estimate of time needed to complete: 1 hr
+12-1-18
+Start time: 10:30
 Finish time: 
 Actual time needed to complete: 
-------------------
 ------------------
 # lab8-back-end-cont
 
