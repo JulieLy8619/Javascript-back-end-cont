@@ -42,10 +42,10 @@ CREATE TABLE IF NOT EXISTS tmdb (
 CREATE TABLE IF NOT EXISTS meetup (
     id SERIAL PRIMARY KEY,
     created_at BIGINT,
+    creation_date VARCHAR(255),
     link VARCHAR(255),
     name VARCHAR(255),
     host VARCHAR(255),
-    creation_date BIGINT,
     location_id INTEGER NOT NULL REFERENCES locations(id)
   );
 
@@ -55,12 +55,12 @@ CREATE TABLE IF NOT EXISTS hiking (
     trail_url VARCHAR(255),
     name VARCHAR(255),
     location VARCHAR(255),
-    length NUMERIC(4, 0),
-    condition_date BIGINT,
-    condition_time BIGINT,
+    length NUMERIC(6, 2),
+    condition_date VARCHAR(255),
+    condition_time VARCHAR(255),
     conditions VARCHAR(255),
-    stars NUMERIC(8, 0),
-    star_votes NUMERIC(8, 0),
+    stars NUMERIC(3, 0),
+    star_votes NUMERIC(3, 0),
     summary VARCHAR(2000),
     location_id INTEGER NOT NULL REFERENCES locations(id)
   );

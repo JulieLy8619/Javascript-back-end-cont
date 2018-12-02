@@ -125,6 +125,7 @@ function Movie(query) {
   this.popularity = query.popularity;
   this.image_url = ('http://image.tmdb.org/t/p/w185/'+query.poster_path);
   this.overview = query.overview;
+  this.created_at = Date.now();
 }
 Movie.tableName = 'tmdb';
 Movie.lookup = lookup;
@@ -132,31 +133,55 @@ Movie.deleteByLocationId = deleteByLocationId;
 Movie.prototype.save = function (location_id) {
   const SQL = `INSERT INTO ${this.tableName} (created_at, title, released_on, total_votes, average_votes, popularity, image_url, overview, location_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`;
   const values = [this.created_at, this.title, this.released_on, this.total_votes, this.average_votes, this.popularity, this.image_url, this.overview, location_id];
-
   client.query(SQL, values);
 }
 
 //object for meet up
 function MUEvent(query) {
+  this.tableName = 'meetup';
   this.link = query.link;
   this.name = query.name;
   this.host = query.group.name;
   this.creation_date = (new Date(query.created)).toLocaleDateString();
+  this.created_at = Date.now();
+}
+MUEvent.tableName = 'meetup';
+MUEvent.lookup = lookup;
+MUEvent.deleteByLocationId = deleteByLocationId;
+MUEvent.prototype.save = function (location_id) {
+  const SQL = `INSERT INTO ${this.tableName} (created_at, link, name, host, creation_date, location_id) VALUES ($1, $2, $3, $4, $5, $6);`;
+  const values = [this.created_at, this.link, this.name, this.host, this.creation_date, location_id];
+
+  client.query(SQL, values);
 }
 
 //object for hiking
 function Trail(query) {
+  this.tableName = 'hiking';
   this.trail_url = query.url;
   this.name = query.name;
   this.location = query.location;
   this.length = query.length;
-  this.condition_date = query.conditionDate; //need to fix this, returning 01/01/1970
-  this.condition_time = 1; //need to fix this too
+  this.condition_date = 'No date provided'; //a bunch of the dates were 01/01/1970 from API, so I just chose to not provide a date
+  this.condition_time = 'No time available'; //a bunch of the dates were 01/01/1970 at 00 time from API, so I just chose to not provide a time
   this.conditions = query.conditionStatus;
   this.stars = query.stars;
   this.star_votes = query.starVotes;
   this.summary = query.summary;
+  this.created_at = Date.now();
+  console.log(this);
 }
+Trail.tableName = 'hiking';
+Trail.lookup = lookup;
+Trail.deleteByLocationId = deleteByLocationId;
+Trail.prototype.save = function (location_id) {
+  const SQL = `INSERT INTO ${this.tableName} (created_at, trail_url, name, location, length, condition_date, condition_time, conditions, stars, star_votes, summary, location_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);`;
+  const values = [this.created_at, this.trail_url, this.name, this.location, this.length, this.condition_date, this.condition_time, this.conditions, this.stars, this.star_votes, this.summary, location_id];
+
+  client.query(SQL, values);
+}
+
+
 
 
 // ====== Handlers Functions ================
@@ -181,30 +206,6 @@ function getLocation (req, resp) {
     }
   })
 }
-
-//i don't think I need this anymore
-// function searchToLatLong(query) {
-//   const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${process.env.GEOCODE_API_KEY}`;
-
-//   return superagent.get(url)
-//     .then(res => {
-//       return new Location(query, res);
-//     })
-//     .catch(error => handleError(error));
-// }
-
-// function getWeather(request, response) {
-//   const url = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${request.query.data.latitude},${request.query.data.longitude}`;
-
-//   superagent.get(url)
-//     .then(result => {
-//       const weatherSummaries = result.body.daily.data.map(day => {
-//         return new Weather(day);
-//       });
-//       response.send(weatherSummaries);
-//     })
-//     .catch(error => handleError(error, response));
-// }
 
 // Weather handler
 function getWeather(request, response) {
@@ -237,20 +238,6 @@ function getWeather(request, response) {
   })
 }
 
-// function getYelp(req, res){
-//   const yelpUrl = `https://api.yelp.com/v3/businesses/search?latitude=${req.query.data.latitude}&longitude=${req.query.data.longitude}`;
-
-//   superagent.get(yelpUrl)
-//     .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
-//     .then(yelpResult => {
-//       const yelpSummaries = yelpResult.body.businesses.map(place => {
-//         return new Food(place);
-//       });
-//       res.send(yelpSummaries);
-//     })
-//     .catch(error => handleError(error, res));
-// }
-
 function getYelp(req, res){
   Food.lookup({
     tableName: Food.tableName,
@@ -282,19 +269,6 @@ function getYelp(req, res){
   })
 }
 
-
-// function getMovies(query,response) {
-//   const movieUrl = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&query=${query}`;
-
-//   superagent.get(movieUrl)
-//     .then(resultFromSuper => {
-//       const movieSummaries = resultFromSuper.body.results.map(movieItem => {
-//         return new Movie(movieItem);
-//       });
-//       response.send(movieSummaries);
-//     })
-//     .catch(error => handleError(error, response));
-// }
 function getMovies(request,response) {
   Movie.lookup({
     tableName: Movie.tableName,
@@ -325,37 +299,92 @@ function getMovies(request,response) {
   })
 }
 
-function getEvents(req,response) {
-  const eventUrl = `https://api.meetup.com/find/upcoming_events?key=${process.env.MEET_UP_API_KEY}&lon=${req.query.data.longitude}&page=20&lat=${req.query.data.latitude}`; 
+// function getEvents(req,response) {
+//   const eventUrl = `https://api.meetup.com/find/upcoming_events?key=${process.env.MEET_UP_API_KEY}&lon=${req.query.data.longitude}&page=20&lat=${req.query.data.latitude}`; 
 
-  superagent.get(eventUrl)
-    .then(resultFromSuper => {
-      const eventSummaries = resultFromSuper.body.events.map(eventItem => {
-        return new MUEvent(eventItem);
-      });
-      response.send(eventSummaries);
-    })
-    .catch(error => handleError(error, response));
-}
-
-function getTrails(req,response) {
-  const trailUrl = `https://www.hikingproject.com/data/get-trails?lat=${req.query.data.latitude}&lon=${req.query.data.longitude}&maxDistance=10&key=${process.env.HIKING_API_KEY}`; 
-
-  superagent.get(trailUrl)
-    .then(resultFromSuper => {
-      const trailSummaries = resultFromSuper.body.trails.map(trailItem => {
-        return new Trail(trailItem);
-      });
-      response.send(trailSummaries);
-    })
-    .catch(error => handleError(error, response));
-}
-
-// // Error handler
-// function handleError(err, res) {
-//   console.error(err);
-//   if (res) res.status(500).send('Sorry, something went wrong');
+//   superagent.get(eventUrl)
+//     .then(resultFromSuper => {
+//       const eventSummaries = resultFromSuper.body.events.map(eventItem => {
+//         return new MUEvent(eventItem);
+//       });
+//       response.send(eventSummaries);
+//     })
+//     .catch(error => handleError(error, response));
 // }
+
+function getEvents(request,response) {
+  MUEvent.lookup({
+    tableName: MUEvent.tableName,
+    location: request.query.data.id,
+    cacheHit: function (result) {
+      let ageOfResultsInMinutes = (Date.now() - result.rows[0].created_at) / (1000 * 60);
+      if (ageOfResultsInMinutes > 30) {
+        MUEvent.deleteByLocationId(MUEvent.tableName, request.query.data.id);
+        this.cacheMiss();
+      } else {
+        response.send(result.rows);
+      }
+    },
+    cacheMiss: function () {
+      const eventUrl = `https://api.meetup.com/find/upcoming_events?key=${process.env.MEET_UP_API_KEY}&lon=${request.query.data.longitude}&page=20&lat=${request.query.data.latitude}`;
+
+      return superagent.get(eventUrl)
+        .then(resultFromSuper => {
+          const eventSummaries = resultFromSuper.body.events.map(eventItem => {
+            const summary = new MUEvent(eventItem);
+            summary.save(request.query.data.id);
+            return summary;
+          });
+          response.send(eventSummaries);
+        })
+        .catch(error => handleError(error, response));
+    }
+  })
+}
+
+// function getTrails(req,response) {
+//   const trailUrl = `https://www.hikingproject.com/data/get-trails?lat=${req.query.data.latitude}&lon=${req.query.data.longitude}&maxDistance=10&key=${process.env.HIKING_API_KEY}`; 
+
+//   superagent.get(trailUrl)
+//     .then(resultFromSuper => {
+//       // console.log('trail api details', resultFromSuper.body.trails);
+//       const trailSummaries = resultFromSuper.body.trails.map(trailItem => {
+//         return new Trail(trailItem);
+//       });
+//       response.send(trailSummaries);
+//     })
+//     .catch(error => handleError(error, response));
+// }
+
+function getTrails(request,response) {
+  Trail.lookup({
+    tableName: Trail.tableName,
+    location: request.query.data.id,
+    cacheHit: function (result) {
+      let ageOfResultsInMinutes = (Date.now() - result.rows[0].created_at) / (1000 * 60);
+      if (ageOfResultsInMinutes > 30) {
+        Trail.deleteByLocationId(Trail.tableName, request.query.data.id);
+        this.cacheMiss();
+      } else {
+        response.send(result.rows);
+      }
+    },
+    cacheMiss: function () {
+      const trailUrl = `https://www.hikingproject.com/data/get-trails?lat=${request.query.data.latitude}&lon=${request.query.data.longitude}&maxDistance=10&key=${process.env.HIKING_API_KEY}`; 
+
+      return superagent.get(trailUrl)
+        .then(resultFromSuper => {
+          const trailSummaries = resultFromSuper.body.trails.map(eventItem => {
+            const summary = new Trail(eventItem);
+            summary.save(request.query.data.id);
+            return summary;
+          });
+          response.send(trailSummaries);
+        })
+        .catch(error => handleError(error, response));
+    }
+  })
+}
 
 // ============ Helper functions ===============
 // These functions are assigned to properties on the models
